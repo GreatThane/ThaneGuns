@@ -1,0 +1,10 @@
+name: ThaneGuns
+version: ${project.version}
+main: org.thane.ThaneGuns
+depend: [ProtocolLib]
+authors: [Thane]
+description: Adds guns
+commands:
+  test:
+    description: test command.
+    usage: /test
