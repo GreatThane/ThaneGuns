@@ -1,6 +1,6 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea/
-ThaneGuns.iml
+*.iml
 dependency-reduced-pom.xml
 src/test/
 target/

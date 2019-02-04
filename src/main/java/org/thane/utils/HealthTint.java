@@ -5,6 +5,7 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Constructor;
@@ -18,21 +19,20 @@ public class HealthTint {
          BORDER FUNCTIONS COURTESY OF TINT HEALTH
      */
 
-    private static int fadeTime = 1;
-    private static int intensity = 1;
-
     public static void sendBorder(Player p, int percentage) {
-        percentage = Math.round(percentage / intensity);
+        int intensity = 1;
+        percentage = Math.round((float) percentage / intensity);
         setBorder(p, percentage);
+        int fadeTime = 1;
         fadeBorder(p, percentage, fadeTime);
     }
 
-    public static void fadeBorder(Player p, int percentage, long time) {
+    private static void fadeBorder(Player p, int percentage, long time) {
         int dist = -10000 * percentage + 1300000;
         sendWorldBorderPacket(p, 0, 200000D, (double) dist, (long) 1000 * time + 4000); //Add 4000 to make sure the "security" zone does not count in the fade time
     }
 
-    public static void setBorder(Player p, int percentage) {
+    private static void setBorder(Player p, int percentage) {
         int dist = -10000 * percentage + 1300000;
         sendWorldBorderPacket(p, dist, 200000D, 200000D, 0);
     }
@@ -83,7 +83,7 @@ public class HealthTint {
 //        }
 //    }
 //
-    protected static void sendWorldBorderPacket(Player p, int dist, double oldradius, double newradius, long delay) {
+    private static void sendWorldBorderPacket(Player p, int dist, double oldradius, double newradius, long delay) {
 ////
 ////			New Reflection Version
 ////

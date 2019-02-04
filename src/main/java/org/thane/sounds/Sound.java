@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-public class Sound {
+public class Sound implements Cloneable {
 
     private String sound;
     private SoundCategory category = SoundCategory.MASTER;
@@ -77,5 +77,18 @@ public class Sound {
         double y = start.getY() + (end.getY() - start.getY()) * percent;
         double z = start.getZ() + (end.getZ() - start.getZ()) * percent;
         return new Location(start.getWorld(), x, y, z);
+    }
+
+    @Override
+    public Sound clone() {
+        try {
+            Sound sound = (Sound) super.clone();
+            sound.sound = this.sound;
+            sound.category = category;
+            return sound;
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

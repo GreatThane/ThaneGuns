@@ -43,12 +43,12 @@ public class DamageReport {
 
     public boolean finalizeKill(boolean callEvent) {
         if (callEvent) {
-            DamageReportEvent event = new DamageReportEvent(victim, damager, EntityDamageEvent.DamageCause.CUSTOM, damage);
-            Bukkit.getPluginManager().callEvent(event);
-            if (!event.isCancelled()) {
-                victim.damage(damage);
-                return victim.getHealth() - damage <= 0;
-            }
+//            DamageReportEvent event = new DamageReportEvent(victim, damager, EntityDamageEvent.DamageCause.CUSTOM, damage);
+//            Bukkit.getPluginManager().callEvent(event);
+//            if (!event.isCancelled()) {
+//                victim.damage(damage);
+//                return victim.getHealth() - damage <= 0;
+//            }
             return false;
         } else {
             victim.damage(damage);

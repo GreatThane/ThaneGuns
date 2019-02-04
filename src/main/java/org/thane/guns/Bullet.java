@@ -1,45 +1,33 @@
 package org.thane.guns;
 
-import io.netty.util.internal.ConcurrentSet;
+import com.google.common.collect.Sets;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.util.BlockIterator;
-import org.thane.utils.DamageReport;
-import org.thane.utils.Range;
+import org.bukkit.entity.Player;
+import org.thane.NMSUtils;
+import org.thane.events.DamageReportEvent;
+import org.thane.guns.properties.BulletProperty;
+import org.thane.utils.HealthTint;
+import org.thane.utils.ranges.FloatRange;
 import org.thane.utils.TaskUtil;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
-public class Bullet {
+@SuppressWarnings("Duplicates")
+public class Bullet implements Cloneable {
 
-//    private static final Map<Material, Byte> defaultPiercables = new HashMap<Material, Byte>() {{
-//        put(Material.AIR, (byte) 0);
-//        put(Material.IRON_BARS, (byte) 0);
-//        put(Material.WATER, (byte) 0);
-//        put(Material.LILY_PAD, (byte) 0);
-//        put(Material.TORCH, (byte) 0);
-//        put(Material.ACACIA_FENCE, (byte) 0);
-//        put(Material.ACACIA_FENCE_GATE, (byte) 0);
-//        put(Material.BIRCH_FENCE, (byte) 0);
-//        put(Material.BIRCH_FENCE_GATE, (byte) 0);
-//        put(Material.DARK_OAK_FENCE_GATE, (byte) 0);
-//        put(Material.DARK_OAK_FENCE, (byte) 0);
-//        put(Material.)
-//    }};
-
-    float accuracy, voltatility;
-    int range;
-    private Range<Float> damageRange;
-    private float damageAtrophy = 0;
-    private ParticleStream particleStream;
-    private Set<BulletProperty> properties = new HashSet<>();
+    private float accuracy, voltatility;
+    private int range;
+    private FloatRange damageRange;
+    private Set<BulletProperty> properties = new TreeSet<>();
     private double multiplier = 1;
+    private float distance = 0;
 
     private Location prev;
     private Location current;
@@ -56,29 +44,18 @@ public class Bullet {
         this.range = range;
     }
 
-    public Bullet(float accuracy, float voltatility, int range, Range<Float> damageRange) {
+    public Bullet(float accuracy, float voltatility, int range, FloatRange damageRange) {
         this.accuracy = accuracy;
         this.voltatility = voltatility;
         this.range = range;
         this.damageRange = damageRange;
     }
 
-    public Bullet(float accuracy, float voltatility, int range, Range<Float> damageRange, float damageAtrophy, ParticleStream particleStream) {
+    public Bullet(float accuracy, float voltatility, int range, FloatRange damageRange, Set<BulletProperty> properties) {
         this.accuracy = accuracy;
         this.voltatility = voltatility;
         this.range = range;
         this.damageRange = damageRange;
-        this.damageAtrophy = damageAtrophy;
-        this.particleStream = particleStream;
-    }
-
-    public Bullet(float accuracy, float voltatility, int range, Range<Float> damageRange, float damageAtrophy, ParticleStream particleStream, Set<BulletProperty> properties) {
-        this.accuracy = accuracy;
-        this.voltatility = voltatility;
-        this.range = range;
-        this.damageRange = damageRange;
-        this.damageAtrophy = damageAtrophy;
-        this.particleStream = particleStream;
         this.properties = properties;
     }
 
@@ -106,28 +83,12 @@ public class Bullet {
         this.range = range;
     }
 
-    public Range<Float> getDamageRange() {
+    public FloatRange getDamageRange() {
         return damageRange;
     }
 
-    public void setDamageRange(Range<Float> damageRange) {
+    public void setDamageRange(FloatRange damageRange) {
         this.damageRange = damageRange;
-    }
-
-    public float getDamageAtrophy() {
-        return damageAtrophy;
-    }
-
-    public void setDamageAtrophy(float damageAtrophy) {
-        this.damageAtrophy = damageAtrophy;
-    }
-
-    public ParticleStream getParticleStream() {
-        return particleStream;
-    }
-
-    public void setParticleStream(ParticleStream particleStream) {
-        this.particleStream = particleStream;
     }
 
     public Set<BulletProperty> getProperties() {
@@ -158,6 +119,10 @@ public class Bullet {
         return current;
     }
 
+    public Location getNextLocation() {
+        return next;
+    }
+
     public void setLocation(Location current) {
         this.current = current;
     }
@@ -175,78 +140,164 @@ public class Bullet {
         return properties.stream().filter(property::isInstance).collect(Collectors.toSet());
     }
 
-    public Set<DamageReport> spawn(LivingEntity shooter, Location startPoint) {
-        BlockIterator iterator = new BlockIterator(shooter.getEyeLocation(), 0, range);
+    private LivingEntity shooter = null;
 
-        for (BulletProperty property : getProperties(BulletProperty.BlockPiercing.class)) {
+    public void spawn(LivingEntity shooter) {
+        spawn(shooter, shooter.getEyeLocation());
+    }
 
-        }
+    public void spawn(LivingEntity shooter, Location startPoint) {
+        if (isShot()) return;
 
+        this.shooter = shooter;
         current = startPoint;
-        prev = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(-0.7)).toLocation(startPoint.getWorld());
-        next = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(0.7)).toLocation(startPoint.getWorld());
+        prev = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(-0.5)).toLocation(startPoint.getWorld());
+        next = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(0.5)).toLocation(startPoint.getWorld());
+
+        Location location = NMSUtils.getIntersection(prev, current).ignoreBlocksWithoutBoundingBoxes(true).stopsOnLiquid(false).compute();
+        if (location != null) {
+            for (BulletProperty property : properties) {
+                if (!property.onHitBlock(this, location)) {
+                    terminate();
+                    return;
+                }
+            }
+        }
+
+        for (BulletProperty property : getProperties()) {
+            if (property.onSpawn(this)) {
+                return;
+            }
+        }
+        addBullet(this);
     }
 
-    public class ParticleStream {
+    public LivingEntity getShooter() {
+        return shooter;
+    }
 
-        private Particle particle;
-        private Range<Integer> range;
-        private int frequency;
+    public void setShooter(LivingEntity shooter) {
+        this.shooter = shooter;
+    }
 
-        public ParticleStream(Particle particle) {
-            this.particle = particle;
+    public boolean isShot() {
+        return shooter != null;
+    }
+
+    public float getDistance() {
+        return distance;
+    }
+
+    public void setDistance(float distance) {
+        this.distance = distance;
+    }
+
+    public void terminate() {
+        boolean terminate = true;
+        for (BulletProperty property : getProperties()) {
+            if (property.onTerminate(this)) terminate = false;
         }
-
-        public ParticleStream(Range<Integer> range, int frequency) {
-            this.range = range;
-            this.frequency = frequency;
-        }
-
-        public Particle getParticle() {
-            return particle;
-        }
-
-        public void setParticle(Particle particle) {
-            this.particle = particle;
-        }
-
-        public Range<Integer> getRange() {
-            return range;
-        }
-
-        public void setRange(Range<Integer> range) {
-            this.range = range;
-        }
-
-        public int getFrequency() {
-            return frequency;
-        }
-
-        public void setFrequency(int frequency) {
-            this.frequency = frequency;
+        if (terminate) {
+            removeBullet(this);
         }
     }
 
-    private static final ConcurrentSkipListSet<Bullet> bullets = new ConcurrentSkipListSet<>();
+    public void iterate() {
+        boolean toContinue = true;
+        for (int i = 0; i <= multiplier && distance < range; i++, distance += 0.5) {
+            for (BulletProperty property : properties) {
+                if (property.onIteration(this, i)) toContinue = false;
+            }
+            if (!toContinue) continue;
+            prev = current;
+            current = next;
+            next = prev.getDirection().add(prev.getDirection().normalize().multiply(0.5)).toLocation(prev.getWorld());
+
+            if (current.getBlock().getType() != Material.AIR) {
+                Location intersection = NMSUtils.getIntersection(current, next).ignoreBlocksWithoutBoundingBoxes(true).stopsOnLiquid(false).compute();
+                if (intersection != null) {
+                    for (BulletProperty property : properties) {
+                        if (!property.onHitBlock(this, intersection)) {
+                            terminate();
+                            return;
+                        }
+                    }
+                }
+            }
+            for (Entity entity : current.getWorld().getNearbyEntities(current, 1, 1, 1)) {
+                if (entity instanceof LivingEntity) {
+                    if (isInHitBox((LivingEntity) entity)) {
+                        for (BulletProperty property : properties) {
+                            if (!property.onHitEntity(this, (LivingEntity) entity)) {
+                                terminate();
+                                break;
+                            }
+                        }
+                        DamageReportEvent event = new DamageReportEvent((LivingEntity) entity, shooter, this, (float) damageRange.random(),
+                                entity instanceof Player ? new ComponentBuilder(ChatColor.stripColor(((Player) entity).getDisplayName()))
+                                        .color(ChatColor.GREEN).append(" was shot by ").color(ChatColor.YELLOW)
+                                        .append(ChatColor.stripColor(((Player) shooter).getDisplayName())).color(ChatColor.GREEN).append(" from ")
+                                        .color(ChatColor.YELLOW).append(String.valueOf(distance)).color(ChatColor.YELLOW).append(" meters away.")
+                                        .color(ChatColor.YELLOW).create() : null);
+                        Bukkit.getPluginManager().callEvent(event);
+
+                        if (event.isCancelled()) continue;
+                        if (!event.willKill() && entity instanceof Player) //noinspection deprecation
+                            HealthTint.sendBorder((Player) entity, (int) (event.getDamage() / ((Player) entity).getMaxHealth() * 100));
+                        ((LivingEntity) entity).damage(event.getDamage(), shooter);
+                        if (event.hasDeathMessage()) {
+                            Bukkit.getOnlinePlayers().forEach(p -> p.spigot().sendMessage(event.getDeathMessage()));
+                        }
+                    }
+                }
+            }
+        }
+        if (distance >= range) {
+            terminate();
+        }
+    }
+
+    public boolean isInHitBox(LivingEntity entity) {
+        return entity.getBoundingBox().contains(current.toVector());
+    }
+
+    private static final Set<Bullet> BULLETS = Sets.newConcurrentHashSet();
 
     protected static void addBullet(Bullet bullet) {
-        bullets.add(bullet);
+        BULLETS.add(bullet);
     }
 
     protected static void removeBullet(Bullet bullet) {
-        bullets.remove(bullet);
+        BULLETS.remove(bullet);
     }
 
     static {
         new TaskUtil(() -> {
-            for (Bullet bullet : bullets) {
-                boolean toContinue = true;
-                for (BulletProperty property : bullet.properties) {
-                    if (!property.onIteration(bullet)) toContinue = false;
+            for (Bullet bullet : BULLETS) {
+                if (bullet.isShot()) {
+                    bullet.iterate();
                 }
-                if (!toContinue) continue;
-
             }
         }, 10, 1).runAsync();
+    }
+
+    public Bullet clone() {
+        try {
+            Bullet bullet = (Bullet) super.clone();
+            bullet.damageRange = this.damageRange.clone();
+            if (isShot()) bullet.shooter = null;
+            bullet.properties = this.properties.stream().map(p -> {
+                try {
+                    return p.clone();
+                } catch (CloneNotSupportedException e) {
+                    e.printStackTrace();
+                    return null;
+                }
+            }).collect(Collectors.toSet());
+            return bullet;
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

@@ -1,7 +1,7 @@
 name: ThaneGuns
 version: ${project.version}
 main: org.thane.ThaneGuns
-depend: [ProtocolLib]
+depend: [ProtocolLib, NMSUtils]
 authors: [Thane]
 description: Adds guns
 commands:

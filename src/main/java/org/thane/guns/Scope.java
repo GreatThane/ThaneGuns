@@ -1,54 +1,73 @@
 package org.thane.guns;
 
+import com.google.common.collect.Iterables;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.thane.ThaneGuns;
 import org.thane.events.ZoomChangeEvent;
+import org.thane.guns.functions.ZoomFunction;
 import org.thane.packetWrappers.WrapperPlayServerAbilities;
-import org.thane.utils.*;
-import org.thane.utils.scripts.InvokableJS;
-import org.thane.utils.scripts.JSExpression;
-import org.thane.utils.scripts.JSFunction;
+import org.thane.utils.ActionBar;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Scope {
 
-    static final Map<Player, Scope> zoomedPlayers = new HashMap<>();
+    static final Map<Player, Scope> ZOOMED_PLAYERS = new ConcurrentHashMap<>();
 
-    private static final String ZOOM_THEMING_KEY = "zoom theming";
-    private static final String ZOOM_FUNCTION_KEY = "zoom function";
-    private static final String ZOOM_SCRIPT_KEY = "zoom";
+    private ZoomFunction zoomFunction = zoom -> -0.0055568182 * zoom * zoom + 0.1024068182 * zoom + -0.4720166667;
+    private ZoomBar zoomBar = new ZoomBar() {
+        @Override
+        public BaseComponent[] messageForZoom(Scope scope, float zoomLevel) {
+            ComponentBuilder builder = new ComponentBuilder("Zoom Level: ").color(ChatColor.GRAY);
+            for (float level : scope.getZoomLevels()) {
+                builder.append(String.valueOf(level));
+                if (level == zoomLevel) {
+                    builder.color(ChatColor.DARK_GRAY);
+                } else builder.color(ChatColor.GREEN);
+                if (level != Iterables.getLast(scope.zoomLevels)) {
+                    builder.append(" > ").color(ChatColor.GRAY);
+                }
+            }
+            return builder.create();
+        }
+    };
 
-    private static InvokableJS ZOOM_FUNCTION = InvokableJS.getFunction(ThaneGuns.getPlugin().getConfig().getString(ZOOM_FUNCTION_KEY));
+    private List<Float> zoomLevels = new ArrayList<Float>() {{
+        zoomLevels.add(1F);
+        zoomLevels.add(2F);
+        zoomLevels.add(4F);
+        zoomLevels.add(8F);
+    }};
 
-    public static Material DEFAULT_SCOPE = Material.matchMaterial(ThaneGuns.getPlugin().getConfig().getString("default scope"));
-    public static short DEFAULT_SCOPE_DATA = (short) ThaneGuns.getPlugin().getConfig().getInt("default scope data");
-    public static List<Float> DEFAULT_ZOOM_LEVELS = ThaneGuns.getPlugin().getConfig().getFloatList("default zoom levels");
-
-    private List<Float> zoomLevels;
-
-    private Material scope;
-    private short scopeData;
+    private Material scope = Material.WOODEN_HOE;
+    private short scopeData = 1;
 
     private int index = 0;
 
+    private Player owner;
+
     public Scope() {
-        this(DEFAULT_SCOPE, DEFAULT_SCOPE_DATA);
     }
 
     public Scope(Material scope) {
-        this(scope, (short) 0);
+        this.scope = scope;
     }
 
     public Scope(Material material, short scopeData) {
-        this(material, scopeData, DEFAULT_ZOOM_LEVELS);
+        this(material);
+        this.scopeData = scopeData;
     }
 
     public Scope(Material material, List<Float> zoomLevels) {
-        this(material, (short) 0, zoomLevels);
+        this(material);
+        this.zoomLevels = zoomLevels;
+        Collections.sort(this.zoomLevels);
     }
 
     public Scope(Material material, Float... zoomLevels) {
@@ -60,10 +79,17 @@ public class Scope {
     }
 
     public Scope(Material material, short scopeData, List<Float> zoomLevels) {
-        scope = material;
-        this.scopeData = scopeData;
+        this(material, scopeData);
         this.zoomLevels = zoomLevels;
         Collections.sort(this.zoomLevels);
+    }
+
+    public Player getOwner() {
+        return owner;
+    }
+
+    public void setOwner(Player owner) {
+        this.owner = owner;
     }
 
     public float getCurrentZoom() {
@@ -74,14 +100,20 @@ public class Scope {
         ZoomChangeEvent event = new ZoomChangeEvent(zoomLevels.get(index), zoom, this);
         Bukkit.getPluginManager().callEvent(event);
 
-        if (!event.isCancelled()) index = zoomLevels.indexOf(zoom);
+        if (!event.isCancelled()) {
+            index = zoomLevels.indexOf(zoom);
+            sendPacket(owner);
+        }
     }
 
     public void setCurrentZoom(int index) {
         ZoomChangeEvent event = new ZoomChangeEvent(zoomLevels.get(this.index), zoomLevels.get(index), this);
         Bukkit.getPluginManager().callEvent(event);
 
-        if (!event.isCancelled()) this.index = index;
+        if (!event.isCancelled()) {
+            this.index = index;
+            sendPacket(owner);
+        }
     }
 
     public Material getScope() {
@@ -104,7 +136,10 @@ public class Scope {
         ZoomChangeEvent event = new ZoomChangeEvent(zoomLevels.get(index), zoomLevels.get(index + amount), this);
         Bukkit.getPluginManager().callEvent(event);
 
-        if (!event.isCancelled()) index += amount;
+        if (!event.isCancelled()) {
+            index += amount;
+            sendPacket(owner);
+        }
     }
 
     public void decreaseZoom() {
@@ -114,7 +149,10 @@ public class Scope {
     public void decreaseZoom(int amount) {
         ZoomChangeEvent event = new ZoomChangeEvent(zoomLevels.get(index), zoomLevels.get(index - amount), this);
         Bukkit.getPluginManager().callEvent(event);
-        if (!event.isCancelled()) index -= amount;
+        if (!event.isCancelled()) {
+            index -= amount;
+            sendPacket(owner);
+        }
     }
 
     public List<Float> getZoomLevels() {
@@ -133,33 +171,40 @@ public class Scope {
         this.scopeData = scopeData;
     }
 
+    public ZoomFunction getZoomFunction() {
+        return zoomFunction;
+    }
+
+    public void setZoomFunction(ZoomFunction zoomFunction) {
+        this.zoomFunction = zoomFunction;
+    }
+
+    public ZoomBar getZoomBar() {
+        return zoomBar;
+    }
+
+    public void setZoomBar(ZoomBar zoomBar) {
+        this.zoomBar = zoomBar;
+    }
+
     public void sendPacket(Player player) {
+        if (player == null) return;
         WrapperPlayServerAbilities packet = new WrapperPlayServerAbilities();
 
         if (getCurrentZoom() == 1) {
             packet.setWalkingSpeed(0.2F);
             player.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
-            zoomedPlayers.remove(player);
+            ZOOMED_PLAYERS.remove(player);
+            ActionBar.getActionBar(player).remove(zoomBar);
         } else {
 
             if (player.getInventory().getItemInOffHand() == null
                     || player.getInventory().getItemInOffHand().getType() == Material.AIR) {
                 player.getInventory().setItemInOffHand(new ItemStack(scope, 1, scopeData));
-                zoomedPlayers.put(player, this);
+                ZOOMED_PLAYERS.put(player, this);
+                ActionBar.getActionBar(player).add(zoomBar);
             }
-            if (ZOOM_FUNCTION instanceof JSExpression) {
-
-                JSExpression expression = ((JSExpression) ZOOM_FUNCTION);
-                expression.setVariables(new HashMap<String, Object>() {{
-                    this.put(ZOOM_SCRIPT_KEY, zoomLevels.get(index));
-                }});
-                packet.setWalkingSpeed((Float) expression.invoke(false));
-            } else {
-                JSFunction function = (JSFunction) ZOOM_FUNCTION;
-
-                packet.setWalkingSpeed((Float) function
-                        .invoke(zoomLevels.get(index)));
-            }
+            packet.setWalkingSpeed((float) zoomFunction.floatForZoomOf(zoomLevels.get(index)));
         }
         switch (player.getGameMode()) {
             case CREATIVE:
@@ -170,33 +215,5 @@ public class Scope {
                 packet.setFlyingSpeed(0.085F);
         }
         packet.sendPacket(player);
-    }
-
-    private static final InvokableJS ZOOM_THEMING_FUNCTION = InvokableJS.getFunction(ThaneGuns.getPlugin().getConfig().getString(ZOOM_THEMING_KEY));
-
-    private static final String ZOOM_INDEX_KEY = "index";
-    private static final String ZOOM_LEVELS_KEY = "zoomLevels";
-
-    private static final String ACTION_BAR_ID = "zoom message";
-
-    static {
-        ActionBarRunnable runnable;
-        if (ZOOM_THEMING_FUNCTION instanceof JSExpression) {
-            runnable = player -> {
-                if (!zoomedPlayers.containsKey(player)) return null;
-
-                ((JSExpression) ZOOM_THEMING_FUNCTION).setVariable(ZOOM_INDEX_KEY, zoomedPlayers.get(player).index);
-                ((JSExpression) ZOOM_THEMING_FUNCTION).setVariable(ZOOM_LEVELS_KEY, zoomedPlayers.get(player).zoomLevels.toArray(new Float[0]));
-                return (String) ((JSExpression) ZOOM_THEMING_FUNCTION).invoke(false);
-            };
-        } else {
-            runnable = player -> {
-                if (!zoomedPlayers.containsKey(player)) return null;
-
-                return (String) ((JSFunction) ZOOM_THEMING_FUNCTION).invoke(zoomedPlayers.get(player).zoomLevels, zoomedPlayers.get(player).index);
-            };
-        }
-        ActionBarManager.addMessage(ACTION_BAR_ID, runnable);
-        ActionBarManager.addOrder(ACTION_BAR_ID);
     }
 }

@@ -1,28 +1,51 @@
 package org.thane.guns;
 
-import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
-import org.bukkit.inventory.ItemStack;
-import org.thane.sounds.Sound;
-import org.thane.utils.NBTUtil;
 
+import org.bukkit.entity.Player;
+import org.thane.sounds.Sound;
+
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
+import java.util.stream.Collectors;
 
-public class Gun {
+public class Gun extends Reloader implements Cloneable {
 
-    Map<String, Sound> sounds = new HashMap<>();
-    Scope scope;
+    private Map<String, Sound> sounds = new HashMap<>();
+    private Bullet bullet;
 
-    
+    public Gun(int maxAmmo, int reloadTime) {
+        super(maxAmmo, reloadTime);
+    }
 
-    public static boolean equalsNBT(ItemStack stack, ItemStack stack1) {
-        if (stack.isSimilar(stack1)) {
-            return Objects.requireNonNull(NBTUtil.nbtToJsonElement(
-                    CraftItemStack.asNMSCopy(stack).getOrCreateTag())).toString()
-                    .equalsIgnoreCase(Objects.requireNonNull(NBTUtil.nbtToJsonElement(
-                            CraftItemStack.asNMSCopy(stack1).getOrCreateTag())).toString());
-        }
-        return false;
+    public Bullet shoot() {
+        Bullet bullet = this.bullet.clone();
+        bullet.spawn(getOwner());
+        return bullet;
+    }
+
+    public Map<String, Sound> getSounds() {
+        return sounds;
+    }
+
+    public void setSounds(Map<String, Sound> sounds) {
+        this.sounds = sounds;
+    }
+
+    public Bullet getBullet() {
+        return bullet;
+    }
+
+    public void setBullet(Bullet bullet) {
+        this.bullet = bullet;
+    }
+
+    @Override
+    public Gun clone() {
+        Gun gun = (Gun) super.clone();
+        gun.sounds = this.sounds.entrySet().stream().map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), e.getValue().clone()))
+                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
+        gun.bullet = this.bullet.clone();
+        return gun;
     }
 }

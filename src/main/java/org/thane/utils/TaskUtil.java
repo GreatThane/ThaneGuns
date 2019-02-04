@@ -54,20 +54,20 @@ public class TaskUtil {
     public int runSync() {
         if (period == 0) {
             if (delay == 0) {
-                return Bukkit.getScheduler().runTask(ThaneGuns.getPlugin(), runnable).getTaskId();
+                return Bukkit.getScheduler().runTask(ThaneGuns.INSTANCE, runnable).getTaskId();
             }
-            return Bukkit.getScheduler().runTaskLater(ThaneGuns.getPlugin(), runnable, delay).getTaskId();
+            return Bukkit.getScheduler().runTaskLater(ThaneGuns.INSTANCE, runnable, delay).getTaskId();
         }
-        return Bukkit.getScheduler().runTaskTimer(ThaneGuns.getPlugin(), runnable, delay, period).getTaskId();
+        return Bukkit.getScheduler().runTaskTimer(ThaneGuns.INSTANCE, runnable, delay, period).getTaskId();
     }
 
     public int runAsync() {
         if (period == 0) {
             if (delay == 0) {
-                return Bukkit.getScheduler().runTaskAsynchronously(ThaneGuns.getPlugin(), runnable).getTaskId();
+                return Bukkit.getScheduler().runTaskAsynchronously(ThaneGuns.INSTANCE, runnable).getTaskId();
             }
-            return Bukkit.getScheduler().runTaskLaterAsynchronously(ThaneGuns.getPlugin(), runnable, delay).getTaskId();
+            return Bukkit.getScheduler().runTaskLaterAsynchronously(ThaneGuns.INSTANCE, runnable, delay).getTaskId();
         }
-        return Bukkit.getScheduler().runTaskTimerAsynchronously(ThaneGuns.getPlugin(), runnable, delay,period).getTaskId();
+        return Bukkit.getScheduler().runTaskTimerAsynchronously(ThaneGuns.INSTANCE, runnable, delay,period).getTaskId();
     }
 }
