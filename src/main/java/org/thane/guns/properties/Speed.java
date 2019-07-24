@@ -16,12 +16,17 @@ public class Speed implements BulletProperty {
     @Override
     public boolean onSpawn(Bullet bullet) {
         bullet.setMultiplier(speed / 20);
-        return false;
+        return BulletProperty.super.onSpawn(bullet);
     }
 
     @Override
-    public Speed clone() throws CloneNotSupportedException {
-        return (Speed) super.clone();
+    public Speed clone() {
+        try {
+            return (Speed) super.clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     @Override

@@ -1,6 +1,0 @@
-zoom function: -0.0055568182 * zoom * zoom + 0.1024068182 * zoom + -0.4720166667
-zoom theming: zoomFunction.js
-default scope: AIR
-default scope data: 0
-default zoom levels:
-  - 1

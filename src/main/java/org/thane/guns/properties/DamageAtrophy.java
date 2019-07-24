@@ -4,7 +4,7 @@ import org.thane.guns.Bullet;
 
 public class DamageAtrophy implements BulletProperty {
 
-        private float atrophy = 0.05F;
+        private float atrophy = 0.95F;
 
         public DamageAtrophy() {
         }
@@ -17,12 +17,17 @@ public class DamageAtrophy implements BulletProperty {
         public boolean onIteration(Bullet bullet, int iterationCount) {
             bullet.getDamageRange().setMax(bullet.getDamageRange().getMax() * atrophy);
             bullet.getDamageRange().setMin(bullet.getDamageRange().getMin() * atrophy);
-            return false;
+            return BulletProperty.super.onIteration(bullet, iterationCount);
         }
 
         @Override
-        public DamageAtrophy clone() throws CloneNotSupportedException {
-            return (DamageAtrophy) super.clone();
+        public DamageAtrophy clone() {
+            try {
+                return (DamageAtrophy) super.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                return null;
+            }
         }
 
     @Override

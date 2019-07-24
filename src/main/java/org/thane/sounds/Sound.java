@@ -5,9 +5,10 @@ import org.bukkit.Location;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 
+import java.io.Serializable;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class Sound implements Cloneable {
+public class Sound implements Cloneable, Serializable {
 
     private String sound;
     private SoundCategory category = SoundCategory.MASTER;

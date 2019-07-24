@@ -16,12 +16,17 @@ public class Gravity implements BulletProperty {
     @Override
     public boolean onIteration(Bullet bullet, int iterationCount) {
         bullet.getNextLocation().setPitch(bullet.getNextLocation().getPitch() - forceOfGravity);
-        return false;
+        return BulletProperty.super.onIteration(bullet, iterationCount);
     }
 
     @Override
-    public Gravity clone() throws CloneNotSupportedException {
-        return (Gravity) super.clone();
+    public Gravity clone() {
+        try {
+            return (Gravity) super.clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     @Override

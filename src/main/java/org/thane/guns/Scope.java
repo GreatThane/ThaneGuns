@@ -9,7 +9,6 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.thane.events.ZoomChangeEvent;
-import org.thane.guns.functions.ZoomFunction;
 import org.thane.packetWrappers.WrapperPlayServerAbilities;
 import org.thane.utils.ActionBar;
 
@@ -20,7 +19,6 @@ public class Scope {
 
     static final Map<Player, Scope> ZOOMED_PLAYERS = new ConcurrentHashMap<>();
 
-    private ZoomFunction zoomFunction = zoom -> -0.0055568182 * zoom * zoom + 0.1024068182 * zoom + -0.4720166667;
     private ZoomBar zoomBar = new ZoomBar() {
         @Override
         public BaseComponent[] messageForZoom(Scope scope, float zoomLevel) {
@@ -155,6 +153,14 @@ public class Scope {
         }
     }
 
+    public boolean isZoomed() {
+        return index != 0;
+    }
+
+    protected int getIndex() {
+        return index;
+    }
+
     public List<Float> getZoomLevels() {
         return zoomLevels;
     }
@@ -171,12 +177,12 @@ public class Scope {
         this.scopeData = scopeData;
     }
 
-    public ZoomFunction getZoomFunction() {
-        return zoomFunction;
+    public double getZoom(float zoomLevel) {
+        return -0.0055568182 * zoomLevel * zoomLevel + 0.1024068182 * zoomLevel + -0.4720166667;
     }
 
-    public void setZoomFunction(ZoomFunction zoomFunction) {
-        this.zoomFunction = zoomFunction;
+    public double getZoom() {
+        return getZoom(zoomLevels.get(index));
     }
 
     public ZoomBar getZoomBar() {
@@ -204,7 +210,7 @@ public class Scope {
                 ZOOMED_PLAYERS.put(player, this);
                 ActionBar.getActionBar(player).add(zoomBar);
             }
-            packet.setWalkingSpeed((float) zoomFunction.floatForZoomOf(zoomLevels.get(index)));
+            packet.setWalkingSpeed((float) getZoom());
         }
         switch (player.getGameMode()) {
             case CREATIVE:

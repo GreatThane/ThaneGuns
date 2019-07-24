@@ -4,7 +4,9 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.entity.Player;
 import org.thane.utils.ActionBarMessage;
 
-public abstract class ReloadBar extends ActionBarMessage {
+import java.io.Serializable;
+
+public abstract class ReloadBar extends ActionBarMessage implements Serializable {
 
     public abstract BaseComponent[] messageForTime(Reloader reloader, int ticksReloading, int totalReloadTime);
 

@@ -4,11 +4,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class NumberRange<T extends Number> extends Range<T> {
 
-    public double numberRange() {
-        return getMax().doubleValue() - getMin().doubleValue();
+    public NumberRange(T min, T max) {
+        super(min, max);
     }
 
-    public double random() {
-        return ThreadLocalRandom.current().nextDouble(getMin().doubleValue(), getMax().doubleValue());
+    public T numberRange() {
+        return (T) ((Number) (getMax().doubleValue() - getMin().doubleValue()));
+    }
+
+    public T random() {
+        return (T) ((Number) ThreadLocalRandom.current().nextDouble(getMin().doubleValue(), getMax().doubleValue()));
     }
 }

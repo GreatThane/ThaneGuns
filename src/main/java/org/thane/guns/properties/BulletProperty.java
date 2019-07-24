@@ -5,7 +5,9 @@ import org.bukkit.entity.LivingEntity;
 import org.thane.guns.Bullet;
 import org.thane.utils.Importance;
 
-public interface BulletProperty extends Cloneable, Importance {
+import java.io.Serializable;
+
+public interface BulletProperty extends Cloneable, Importance, Serializable {
 
     /**
      * @return Returning 'true' cancels the spawning of the bullet.
@@ -26,7 +28,7 @@ public interface BulletProperty extends Cloneable, Importance {
      * @param entity The entity which the bullet has made contact with.
      * @return Returning 'true' cancels the termination of the bullet because of this entity.
      */
-    default boolean onHitEntity(Bullet bullet, LivingEntity entity) {
+    default boolean onHitEntity(Bullet bullet, LivingEntity entity, double damage) {
         return false;
     }
 
@@ -47,5 +49,5 @@ public interface BulletProperty extends Cloneable, Importance {
         return false;
     }
 
-    BulletProperty clone() throws CloneNotSupportedException;
+    BulletProperty clone();
 }

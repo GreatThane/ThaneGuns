@@ -10,20 +10,9 @@ public class ParticleStream implements BulletProperty {
     private IntegerRange range;
     private int frequency;
 
-    public ParticleStream() {
-    }
-
-    public ParticleStream(Particle particle) {
-        this.particle = particle;
-    }
-
-    public ParticleStream(Particle particle, IntegerRange range) {
-        this(particle);
-        this.range = range;
-    }
-
     public ParticleStream(Particle particle, IntegerRange range, int frequency) {
-        this(particle, range);
+        this.particle = particle;
+        this.range = range;
         this.frequency = frequency;
     }
 
@@ -53,19 +42,24 @@ public class ParticleStream implements BulletProperty {
 
     @Override
     public boolean onIteration(Bullet bullet, int iterationCount) {
-        if (bullet.getDistance() >= range.getMin() && bullet.getDistance() <= range.getMax()) {
-            if (bullet.getDistance() - range.getMin() % frequency == 0) {
-                bullet.getLocation().getWorld().spawnParticle(particle, bullet.getLocation(), 1);
-            }
-        }
-        return false;
+//        if (bullet.getDistance() >= range.getMin() && bullet.getDistance() <= range.getMax()) {
+//            if (bullet.isShot() && bullet.getDistance() - range.getMin() % frequency == 0) {
+                bullet.getLocation().getWorld().spawnParticle(particle, bullet.getLocation(), 1, 0D, 0D, 0D, 0D, null, true);
+//            }
+//        }
+        return BulletProperty.super.onIteration(bullet, iterationCount);
     }
 
     @Override
-    public ParticleStream clone() throws CloneNotSupportedException {
-        ParticleStream stream = (ParticleStream) super.clone();
-        stream.range = range.clone();
-        stream.particle = particle;
+    public ParticleStream clone() {
+        ParticleStream stream = null;
+        try {
+            stream = (ParticleStream) super.clone();
+            stream.range = range.clone();
+            stream.particle = particle;
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
         return stream;
     }
 

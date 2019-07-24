@@ -1,9 +1,10 @@
 package org.thane.utils.ranges;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
-public class Range<T> implements Cloneable {
+public class Range<T extends Serializable> implements Cloneable, Serializable {
 
     private T min, max;
 
@@ -48,7 +49,12 @@ public class Range<T> implements Cloneable {
         this.max = max;
     }
 
-    public Range<T> clone() throws CloneNotSupportedException {
-        return (Range<T>) super.clone();
+    public Range<T> clone() {
+        try {
+            return (Range<T>) super.clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

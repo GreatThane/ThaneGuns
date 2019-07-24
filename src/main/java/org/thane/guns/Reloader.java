@@ -3,42 +3,48 @@ package org.thane.guns;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 import org.thane.utils.ActionBar;
 import org.thane.utils.TaskUtil;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Reloader implements Cloneable {
+public class Reloader implements Cloneable, Serializable {
 
     static final Map<Player, Reloader> RELOADING_PLAYERS = new ConcurrentHashMap<>();
 
     private ReloadBar reloadBar = new ReloadBar() {
         @Override
         public BaseComponent[] messageForTime(Reloader reloader, int ticksReloading, int totalReloadTime) {
+
             ComponentBuilder builder = new ComponentBuilder("Reloading: ").color(ChatColor.YELLOW);
-            float percentCompleted = ticksReloading / (float) totalReloadTime;
+            double percentCompleted = Math.ceil(100 * ticksReloading / (double) totalReloadTime) + 10;
+            if (percentCompleted >= 100) return new ComponentBuilder(" ").create();
+
             for (int i = 1; i <= 10; i++) {
-                float percentOfBar = i / 10F;
+                float percentOfBar = 100 * i / 10F;
                 builder.append("\u2588");
-                if (percentOfBar < percentCompleted) {
-                    builder.color(ChatColor.GRAY);
-                } else builder.color(ChatColor.GREEN);
+                if (percentOfBar <= percentCompleted) {
+                    builder.color(ChatColor.GREEN);
+                } else builder.color(ChatColor.GRAY);
             }
             return builder.create();
         }
     };
 
     private int maxAmmo;
-    private int ammo = maxAmmo;
+    private int ammo;
     private int reloadTime;
     private int timeReloading = 0;
     private boolean reloading = false;
-    private Player owner;
+    private transient Player owner;
 
     public Reloader(int maxAmmo, int reloadTime) {
         this.maxAmmo = maxAmmo;
+        ammo = maxAmmo;
         this.reloadTime = reloadTime;
     }
 
@@ -105,7 +111,6 @@ public class Reloader implements Cloneable {
         timeReloading = 0;
         RELOADING_PLAYERS.put(owner, this);
         ActionBar.getActionBar(owner).add(reloadBar);
-
     }
 
     public ReloadBar getReloadBar() {
@@ -145,6 +150,7 @@ public class Reloader implements Cloneable {
             for (Map.Entry<Player, Reloader> entry : RELOADING_PLAYERS.entrySet()) {
                 entry.getValue().timeReloading++;
                 if (entry.getValue().timeReloading >= entry.getValue().reloadTime) {
+                    entry.getValue().refill();
                     entry.getValue().cancelReload();
                 }
             }

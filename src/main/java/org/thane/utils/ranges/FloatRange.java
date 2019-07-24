@@ -2,11 +2,15 @@ package org.thane.utils.ranges;
 
 public class FloatRange extends NumberRange<Float> {
 
+    public FloatRange(Float min, Float max) {
+        super(min, max);
+    }
+
     @Override
-    public FloatRange clone() throws CloneNotSupportedException {
+    public FloatRange clone() {
         FloatRange range = (FloatRange) super.clone();
-        range.setMax(new Float(getMax()));
-        range.setMin(new Float(getMin()));
+        range.setMax(getMax());
+        range.setMin(getMin());
         return range;
     }
 }

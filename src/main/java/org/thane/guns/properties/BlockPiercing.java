@@ -10,11 +10,12 @@ import java.util.Map;
 @SuppressWarnings("Duplicates")
 public class BlockPiercing implements BulletProperty {
 
-    private Map<Material, Float> damageLoss = new HashMap<Material, Float>() {{
-        put(Material.OAK_PLANKS, 0.5F);
-    }};
+    private Map<Material, Float> damageLoss;
 
     public BlockPiercing() {
+        damageLoss = new HashMap<Material, Float>() {{
+            put(Material.OAK_PLANKS, 0.5F);
+        }};
     }
 
     public BlockPiercing(Map<Material, Float> damageLoss) {
@@ -26,13 +27,19 @@ public class BlockPiercing implements BulletProperty {
         if (damageLoss.containsKey(intersectionPoint.getBlock().getType())) {
             bullet.getDamageRange().setMax(bullet.getDamageRange().getMax() * damageLoss.get(intersectionPoint.getBlock().getType()));
             bullet.getDamageRange().setMin(bullet.getDamageRange().getMin() * damageLoss.get(intersectionPoint.getBlock().getType()));
-            return false;
-        } else return true;
+            return true;
+        } else return false;
     }
 
     @Override
-    public BlockPiercing clone() throws CloneNotSupportedException {
-        BlockPiercing piercing = (BlockPiercing) super.clone();
+    public BlockPiercing clone() {
+        BlockPiercing piercing = null;
+        try {
+            piercing = (BlockPiercing) super.clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        assert piercing != null;
         piercing.damageLoss = new HashMap<>(damageLoss);
         return piercing;
     }

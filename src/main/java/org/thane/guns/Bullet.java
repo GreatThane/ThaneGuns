@@ -9,29 +9,34 @@ import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.util.BoundingBox;
 import org.thane.NMSUtils;
 import org.thane.events.DamageReportEvent;
 import org.thane.guns.properties.BulletProperty;
 import org.thane.utils.HealthTint;
-import org.thane.utils.ranges.FloatRange;
 import org.thane.utils.TaskUtil;
+import org.thane.utils.ranges.DoubleRange;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("Duplicates")
-public class Bullet implements Cloneable {
+public class Bullet implements Cloneable, Serializable {
 
     private float accuracy, voltatility;
     private int range;
-    private FloatRange damageRange;
+    private DoubleRange damageRange;
+    private DoubleRange headshotMultiplier = new DoubleRange(1D, 2D);
     private Set<BulletProperty> properties = new TreeSet<>();
     private double multiplier = 1;
     private float distance = 0;
 
-    private Location prev;
-    private Location current;
-    private Location next;
+    private transient Location prev = null;
+    private transient Location current = null;
+    private transient Location next = null;
+
+    private Set<LivingEntity> struckEntities = new HashSet<>();
 
     public Bullet(float accuracy, float voltatility) {
         this.accuracy = accuracy;
@@ -39,24 +44,27 @@ public class Bullet implements Cloneable {
     }
 
     public Bullet(float accuracy, float voltatility, int range) {
-        this.accuracy = accuracy;
-        this.voltatility = voltatility;
+        this(accuracy, voltatility);
         this.range = range;
+        this.multiplier = range;
     }
 
-    public Bullet(float accuracy, float voltatility, int range, FloatRange damageRange) {
-        this.accuracy = accuracy;
-        this.voltatility = voltatility;
-        this.range = range;
+    public Bullet(float accuracy, float voltatility, int range, DoubleRange damageRange) {
+        this(accuracy, voltatility, range);
         this.damageRange = damageRange;
     }
 
-    public Bullet(float accuracy, float voltatility, int range, FloatRange damageRange, Set<BulletProperty> properties) {
-        this.accuracy = accuracy;
-        this.voltatility = voltatility;
-        this.range = range;
-        this.damageRange = damageRange;
+    public Bullet(float accuracy, float voltatility, int range, DoubleRange damageRange, Set<BulletProperty> properties) {
+        this(accuracy, voltatility, range, damageRange);
         this.properties = properties;
+    }
+
+    public Bullet(float accuracy, float voltatility, int range, DoubleRange damageRange, BulletProperty... properties) {
+        this(accuracy, voltatility, range, damageRange, new HashSet<>(Arrays.asList(properties)));
+    }
+
+    public Set<LivingEntity> getStruckEntities() {
+        return struckEntities;
     }
 
     public float getAccuracy() {
@@ -83,11 +91,11 @@ public class Bullet implements Cloneable {
         this.range = range;
     }
 
-    public FloatRange getDamageRange() {
+    public DoubleRange getDamageRange() {
         return damageRange;
     }
 
-    public void setDamageRange(FloatRange damageRange) {
+    public void setDamageRange(DoubleRange damageRange) {
         this.damageRange = damageRange;
     }
 
@@ -127,7 +135,8 @@ public class Bullet implements Cloneable {
         this.current = current;
     }
 
-    public void removeProperties(Class<? extends BulletProperty>... properties) {
+    @SafeVarargs
+    public final void removeProperties(Class<? extends BulletProperty>... properties) {
         Set<Class<? extends BulletProperty>> setProperties = new HashSet<>(Arrays.asList(properties));
         this.properties.forEach(p -> {
             if (setProperties.contains(p.getClass())) {
@@ -151,8 +160,8 @@ public class Bullet implements Cloneable {
 
         this.shooter = shooter;
         current = startPoint;
-        prev = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(-0.5)).toLocation(startPoint.getWorld());
-        next = startPoint.getDirection().add(startPoint.getDirection().normalize().multiply(0.5)).toLocation(startPoint.getWorld());
+        prev = startPoint.clone().add(startPoint.getDirection().multiply(-0.5));
+        next = startPoint.clone().add(startPoint.getDirection().multiply(0.5));
 
         Location location = NMSUtils.getIntersection(prev, current).ignoreBlocksWithoutBoundingBoxes(true).stopsOnLiquid(false).compute();
         if (location != null) {
@@ -163,7 +172,6 @@ public class Bullet implements Cloneable {
                 }
             }
         }
-
         for (BulletProperty property : getProperties()) {
             if (property.onSpawn(this)) {
                 return;
@@ -181,7 +189,7 @@ public class Bullet implements Cloneable {
     }
 
     public boolean isShot() {
-        return shooter != null;
+        return shooter != null && current != null;
     }
 
     public float getDistance() {
@@ -192,26 +200,28 @@ public class Bullet implements Cloneable {
         this.distance = distance;
     }
 
-    public void terminate() {
+    public Set<LivingEntity> terminate() {
         boolean terminate = true;
         for (BulletProperty property : getProperties()) {
             if (property.onTerminate(this)) terminate = false;
         }
         if (terminate) {
             removeBullet(this);
+            return struckEntities;
         }
+        return null;
     }
 
     public void iterate() {
         boolean toContinue = true;
-        for (int i = 0; i <= multiplier && distance < range; i++, distance += 0.5) {
+        for (int i = 0; i < multiplier && distance < range; i++, distance += 0.5) {
             for (BulletProperty property : properties) {
                 if (property.onIteration(this, i)) toContinue = false;
             }
             if (!toContinue) continue;
             prev = current;
             current = next;
-            next = prev.getDirection().add(prev.getDirection().normalize().multiply(0.5)).toLocation(prev.getWorld());
+            next = current.clone().add(current.getDirection().multiply(0.5));
 
             if (current.getBlock().getType() != Material.AIR) {
                 Location intersection = NMSUtils.getIntersection(current, next).ignoreBlocksWithoutBoundingBoxes(true).stopsOnLiquid(false).compute();
@@ -226,14 +236,16 @@ public class Bullet implements Cloneable {
             }
             for (Entity entity : current.getWorld().getNearbyEntities(current, 1, 1, 1)) {
                 if (entity instanceof LivingEntity) {
-                    if (isInHitBox((LivingEntity) entity)) {
+                    if (!shooter.getUniqueId().equals(entity.getUniqueId()) && !struckEntities.contains(entity) && isInHitBox((LivingEntity) entity)) {
+                        double damage = damageRange.random();
+                        if (isHeadShot((LivingEntity) entity)) damage *= headshotMultiplier.random();
                         for (BulletProperty property : properties) {
-                            if (!property.onHitEntity(this, (LivingEntity) entity)) {
+                            if (!property.onHitEntity(this, (LivingEntity) entity, damage)) {
                                 terminate();
                                 break;
                             }
                         }
-                        DamageReportEvent event = new DamageReportEvent((LivingEntity) entity, shooter, this, (float) damageRange.random(),
+                        DamageReportEvent event = new DamageReportEvent((LivingEntity) entity, shooter, this, (float) damage,
                                 entity instanceof Player ? new ComponentBuilder(ChatColor.stripColor(((Player) entity).getDisplayName()))
                                         .color(ChatColor.GREEN).append(" was shot by ").color(ChatColor.YELLOW)
                                         .append(ChatColor.stripColor(((Player) shooter).getDisplayName())).color(ChatColor.GREEN).append(" from ")
@@ -242,9 +254,11 @@ public class Bullet implements Cloneable {
                         Bukkit.getPluginManager().callEvent(event);
 
                         if (event.isCancelled()) continue;
-                        if (!event.willKill() && entity instanceof Player) //noinspection deprecation
+                        if (!event.willKill() && entity instanceof Player)
+                            //noinspection deprecation
                             HealthTint.sendBorder((Player) entity, (int) (event.getDamage() / ((Player) entity).getMaxHealth() * 100));
                         ((LivingEntity) entity).damage(event.getDamage(), shooter);
+                        struckEntities.add((LivingEntity) entity);
                         if (event.hasDeathMessage()) {
                             Bukkit.getOnlinePlayers().forEach(p -> p.spigot().sendMessage(event.getDeathMessage()));
                         }
@@ -258,7 +272,29 @@ public class Bullet implements Cloneable {
     }
 
     public boolean isInHitBox(LivingEntity entity) {
-        return entity.getBoundingBox().contains(current.toVector());
+        return isInBoundingBox(entity.getBoundingBox());
+    }
+
+    public boolean isInBoundingBox(BoundingBox box) {
+        return box.contains(current.getX(), current.getY(), current.getZ());
+    }
+
+    public boolean isHeadShot(LivingEntity entity) {
+        BoundingBox box = null;
+        switch (entity.getType()) {
+            case PLAYER:
+            case ZOMBIE:
+            case SKELETON:
+            case HUSK:
+                box = new BoundingBox(entity.getBoundingBox().getMinX(), entity.getBoundingBox().getMinY() + 1.6, entity.getBoundingBox().getMinZ(),
+                        entity.getBoundingBox().getMaxX(), entity.getBoundingBox().getMaxY(), entity.getBoundingBox().getMaxZ());
+                break;
+        }
+        return box != null && isInBoundingBox(box);
+    }
+
+    public DoubleRange getHeadshotMultiplier() {
+        return headshotMultiplier;
     }
 
     private static final Set<Bullet> BULLETS = Sets.newConcurrentHashSet();
@@ -276,24 +312,22 @@ public class Bullet implements Cloneable {
             for (Bullet bullet : BULLETS) {
                 if (bullet.isShot()) {
                     bullet.iterate();
+                } else {
+                    BULLETS.remove(bullet);
                 }
             }
+//            Bukkit.getLogger().info(String.valueOf(BULLETS.size()));
         }, 10, 1).runAsync();
     }
 
+    @Override
     public Bullet clone() {
         try {
             Bullet bullet = (Bullet) super.clone();
             bullet.damageRange = this.damageRange.clone();
             if (isShot()) bullet.shooter = null;
-            bullet.properties = this.properties.stream().map(p -> {
-                try {
-                    return p.clone();
-                } catch (CloneNotSupportedException e) {
-                    e.printStackTrace();
-                    return null;
-                }
-            }).collect(Collectors.toSet());
+            bullet.properties = this.properties.stream().map(BulletProperty::clone).collect(Collectors.toSet());
+            bullet.struckEntities = new HashSet<>();
             return bullet;
         } catch (CloneNotSupportedException e) {
             e.printStackTrace();

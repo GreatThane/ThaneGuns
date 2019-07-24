@@ -22,17 +22,23 @@ public class BodyPiercing implements BulletProperty {
     }
 
     @Override
-    public boolean onHitEntity(Bullet bullet, LivingEntity entity) {
+    public boolean onHitEntity(Bullet bullet, LivingEntity entity, double damage) {
         if (damageLoss.containsKey(entity.getType())) {
             bullet.getDamageRange().setMax(bullet.getDamageRange().getMax() * damageLoss.get(entity.getType()));
             bullet.getDamageRange().setMin(bullet.getDamageRange().getMin() * damageLoss.get(entity.getType()));
-            return false;
-        } else return true;
+            return true;
+        } else return false;
     }
 
     @Override
-    public BodyPiercing clone() throws CloneNotSupportedException {
-        BodyPiercing piercing = (BodyPiercing) super.clone();
+    public BodyPiercing clone() {
+        BodyPiercing piercing = null;
+        try {
+            piercing = (BodyPiercing) super.clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        assert piercing != null;
         piercing.damageLoss = new HashMap<>(damageLoss);
         return piercing;
     }
